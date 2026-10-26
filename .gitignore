@@ -2,3 +2,5 @@
 __pycache__/
 *.duckdb
 data/orders.csv
+data/raw/
+data/processed/
