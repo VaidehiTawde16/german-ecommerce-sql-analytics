@@ -1,56 +1,63 @@
 # German E-Commerce — Advanced SQL Analytics Case Study
 
-A focused SQL portfolio project answering real commercial questions on a German
-online-retail dataset using **analytical SQL** — window functions, cohort analysis,
-and RFM segmentation — executed on **DuckDB**.
+A SQL portfolio project exploring commercial questions through analytical SQL, DuckDB and Python.
 
-> **Why this project:** dashboards are easy to fake; *SQL depth* is not. This repo
-> demonstrates the query patterns analysts are actually tested on in interviews:
-> period-over-period growth, retention cohorts, customer segmentation, running totals,
-> and partitioned ranking — each documented with the technique it showcases.
+> The repository includes synthetic data for repeatable testing and a separate workflow for preparing a real public retail dataset. Findings from the synthetic dataset are illustrative and must not be presented as real market results.
 
-## Dataset
-22,000 synthetic orders across 3,000 customers, 10 German cities and 7 categories
-(2023 → mid-2025). Fully synthetic, no PII. The schema mirrors a typical DACH order
-export, so the same queries run unchanged on a real export (e.g. a Kaggle online-retail
-set filtered to Germany).
+## Existing synthetic dataset
 
-| Column | Example |
-|--------|---------|
-| order_id, customer_id | 1000, 1742 |
-| order_date | 2024-03-11 |
-| city | München, Berlin, Hamburg … |
-| category | Elektronik, Garten, Sport … |
-| channel | web / mobile_app / marketplace |
-| quantity, amount_eur | 2, 219.90 |
+The synthetic generator creates approximately 22,000 order records across 3,000 customers, 10 German cities and 7 categories from 2023 to mid-2025. It contains no personal data. Because the data-generating process shapes the patterns, use it for SQL development and testing—not as evidence about actual customer behaviour.
 
-## Quickstart
+## Real-data analysis
+
+The planned real-data source is [UCI Online Retail](https://archive.ics.uci.edu/dataset/352/online+retail), a transaction-line dataset from a UK-based online retailer. The initial analysis scope is records where the source country is Germany. This is not a dataset from a German retailer, and monetary results remain in GBP.
+
+### Prepare the workbook
+
+1. Download the original Online Retail workbook from UCI.
+2. Save it as `data/raw/Online Retail.xlsx` (or supply a different path).
+3. Install dependencies and run the preparation script:
+
 ```bash
-python -m venv .venv && source .venv/Scripts/activate
-pip install duckdb
-python generate_data.py     # writes data/orders.csv
-python run_analysis.py      # runs every query in queries/ and prints results
+python -m venv .venv
+# Windows PowerShell:
+.venv\\Scripts\\Activate.ps1
+# macOS/Linux:
+# source .venv/bin/activate
+
+pip install -r requirements.txt
+python prepare_real_data.py
 ```
 
-## The five analyses
+The script writes `data/processed/real_retail_transactions.csv`. It preserves source rows and adds quality flags for cancellation invoices, negative/zero quantities, negative prices, missing values and duplicate candidates. It does not silently delete flagged records. Inspect the counts and flags before defining the final analysis filters.
 
-| File | Question | SQL technique |
+See [real-data methodology](docs/real_data_methodology.md) for source scope, metric definitions, cleaning rules and limitations.
+
+## Current SQL analyses
+
+| File | Business question | SQL technique |
 |------|----------|---------------|
-| `01_monthly_revenue_growth.sql` | How is revenue trending month-over-month? | `LAG()` for period comparison |
-| `02_cohort_retention.sql` | Do customers come back after their first month? | First-touch cohorting + retention matrix |
-| `03_rfm_segmentation.sql` | Who are our Champions vs At-Risk customers? | `NTILE(4)` scoring + segment `CASE` logic |
-| `04_category_running_total.sql` | Which categories drive revenue (Pareto)? | `SUM() OVER` running total + ratio-to-report |
-| `05_top_customers_per_city.sql` | Who are the top 3 spenders in each city? | `RANK() … PARTITION BY` |
+| `queries/01_monthly_revenue_growth.sql` | How is revenue trending month over month? | `LAG()` |
+| `queries/02_cohort_retention.sql` | Do customers return after their first month? | Cohort analysis |
+| `queries/03_rfm_segmentation.sql` | Which customers have different recency, frequency and spend profiles? | `NTILE()`, `CASE` |
+| `queries/04_category_running_total.sql` | How concentrated is revenue across categories? | Running totals, share of total |
+| `queries/05_top_customers_per_city.sql` | Who are the top spenders in each city? | `RANK()` and `PARTITION BY` |
 
-## Sample findings
-- **Strong growth ramp:** monthly revenue climbs from ~€2k (Jan-23) to ~€50k+ by end-2023.
-- **Retention is front-loaded:** cohorts drop sharply after month 0 (~22–36% by month 1) —
-  the classic "leaky bucket" that flags a re-engagement opportunity.
-- **Champions are ~21% of customers** but carry the highest lifetime value (~€1,500 avg).
-- **Pareto holds:** *Elektronik* alone is 36% of revenue; the top 3 categories are ~70%.
+These queries currently target the synthetic `orders` table. The real-data preparation workflow is the first step; a validated staging view and explicit metric filters must be added before running equivalent business analyses on the real dataset.
 
-## What makes it mine
-The dataset, the five business questions, the RFM segment thresholds, and this
-documentation are my own design choices — the SQL patterns are standard, the analysis
-and interpretation are mine. Every query carries an inline comment explaining the
-technique so the logic is fully traceable.
+## Metric and data limitations
+
+- The existing synthetic schema has one row per order and uses generated values. Treat its findings as illustrative.
+- The UCI source has transaction-line grain, so invoice counts should use distinct invoice numbers.
+- Cancellation invoices and negative quantities may represent cancellations or returns. They need explicit handling; gross positive sales and net sales are not interchangeable.
+- Customer analyses require identifiable customer IDs; report how excluding missing IDs affects coverage.
+- The source is from a UK-based retailer, and monetary values are in GBP.
+- Product costs and marketing spend are not available, so this project cannot claim profit, margin or campaign ROI.
+
+## Roadmap
+
+1. Validate the real dataset and document cleaning decisions.
+2. Define revenue, invoice, average order value and retention metrics.
+3. Adapt the existing SQL analyses to the cleaned real-data staging layer.
+4. Add query tests, reproducible result tables and business recommendations.
+5. Present evidence, assumptions and limitations in a concise stakeholder report.
